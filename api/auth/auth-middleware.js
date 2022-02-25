@@ -1,59 +1,47 @@
-const db = require('./auth-model');
+const Users = require('../auth/auth-model')
 
-const checkUsernameExists = async (req, res, next) => {
+const checkPayload = (req, res, next) => {
     try{
-        const [user] = await db.findBy({username: req.body.username})
-        console.log(user)
-        if(user){
-            next({
-                status: 422, 
-                message: 'username taken'
-            })
-        }
-       
-        else{
-            req.user = user
+        const { username, password } = req.body
+        if(!username || !password) {
+            res.status(404).json({message: 'username and password required'})
+        }else{
+            req.username = username,
+            req.password = password
             next()
         }
-    }
-    catch(err){
+    }catch(err){
         next(err)
-      }
-
+    }
 }
-const validateUserExsist = async (req, res, next) => {
+
+const uniqueUsername = async(req, res, next) => {
     try{
-        const [user] = await db.findBy({username: req.body.username})
-        console.log(user)
-        if(!user){
-            next({
-                status: 422, 
-                message: 'Invalid credentials'
-            })
-        }    
-        else{
-            req.user = user
+        const existingUsername = await Users.findByUsername(req.body.username)
+        if(!existingUsername.length) {
             next()
+        }else{
+            next({status: 422, message: 'username taken'})
         }
-    }
-    catch(err){
+    }catch(err){
         next(err)
-      }
-
-}
-
-const checkBodyValidation = (req,res,next) => {
-    if(!req.body.username || !req.body.password) {
-        next({
-            status: 422, 
-            message: 'username and password required'
-        })
-    }else{
-        next()
     }
 }
-module.exports ={
-    checkUsernameExists,
-    checkBodyValidation,
-    validateUserExsist
+
+const checkLoginPayload = async (req, res, next) => {
+    try{
+        const user = await Users.findByUsername(req.body.username)
+        const password = await Users.validatePassword(req.body.password)
+        if(!user || !password) {
+            next({status: 400, message: 'invalid credentials'})
+        }
+    }catch(err){
+        next(err)
+    }
+}
+
+module.exports = {
+    checkPayload,
+    uniqueUsername,
+    checkLoginPayload,
 }
